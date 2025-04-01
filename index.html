@@ -1,148 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GitHub全景展厅</title>
+    <title>GitHub全景展厅 - 稳定加载版</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        * { margin: 0; padding: 0 }
-        #container { 
-            width: 100vw; 
-            height: 100vh; 
-            position: relative 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: #1a1a1a;
+        }
+
         #loading {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: white;
-            font-family: Arial;
-            z-index: 100;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            transition: opacity 0.3s;
+        }
+
+        .panorama-image {
+            width: 400%;
+            height: 100%;
+            background-size: auto 100%;
+            transform-origin: center;
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        @media (max-width: 768px) {
+            .panorama-image {
+                width: 800%;
+            }
         }
     </style>
 </head>
 <body>
     <div id="container">
-        <div id="loading">载入中...</div>
-        <canvas id="canvas"></canvas>
+        <div id="loading">正在加载全景图...</div>
+        <div class="panorama-image" id="panorama"></div>
     </div>
 
-    <!-- 引入Three.js核心库 -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/",
-                "gsap": "https://unpkg.com/gsap@3.12.2/index.js"
-            }
-        }
-    </script>
-
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { VRButton } from 'three/addons/webxr/VRButton.js';
-
-        // 初始化场景
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            canvas: document.querySelector('#canvas') 
-        });
-
-        // GitHub图片配置
-        const GITHUB_USER = 'heifengzhaikengwang';
-        const REPO_NAME = 'vr';
-        const IMAGE_PATH = 'mmexport1743515160971.jpg';
-        const PANORAMA_URL = `https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${REPO_NAME}@main/${IMAGE_PATH}`;
-
-        // 初始化渲染器
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.xr.enabled = true;
-        document.body.appendChild(VRButton.createButton(renderer));
-
-        // 创建全景球体
-        const geometry = new THREE.SphereGeometry(15, 64, 64);
-        const textureLoader = new THREE.TextureLoader();
-        const material = new THREE.MeshBasicMaterial({
-            map: textureLoader.load(PANORAMA_URL, () => {
-                document.getElementById('loading').style.display = 'none';
-            }),
-            side: THREE.BackSide
-        });
-
-        const sphere = new THREE.Mesh(geometry, material);
-        scene.add(sphere);
-
-        // 相机定位
-        camera.position.set(0, 0, 0.1);
-
-        // 控制器配置
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableZoom = false;
-        controls.enablePan = false;
-        controls.rotateSpeed = 0.3;
-
-        // 响应式处理
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // 动画循环
-        renderer.setAnimationLoop(() => {
-            controls.update();
-            renderer.render(scene, camera);
-        });
-
-        // 热点系统（示例热点）
-        const hotSpots = [
-            {
-                position: { x: 2, y: 1, z: -3 },
-                info: "展品详情1",
-                color: 0xff0000
+    <script>
+        // 配置区（用户需修改部分）=======================================
+        const CONFIG = {
+            github: {
+                user: 'heifengzhaikengwang',
+                repo: 'vr',
+                branch: 'main',
+                image: 'mmexport1743515160971.jpg'
             },
-            {
-                position: { x: -2, y: -1, z: 3 },
-                info: "展品详情2",
-                color: 0x00ff00
+            sensitivity: 0.35  // 鼠标灵敏度 (0.1-1)
+        };
+        // ============================================================
+
+        // 核心逻辑（无需修改）=========================================
+        class PanoramaViewer {
+            constructor() {
+                this.imageUrl = this._buildImageUrl();
+                this.loadState = {
+                    loaded: false,
+                    progress: 0
+                };
+                this.init();
             }
-        ];
 
-        // 创建热点标记
-        hotSpots.forEach((spot, index) => {
-            const geometry = new THREE.SphereGeometry(0.2, 32, 32);
-            const material = new THREE.MeshBasicMaterial({ 
-                color: spot.color,
-                transparent: true,
-                opacity: 0.8
-            });
-            const marker = new THREE.Mesh(geometry, material);
-            marker.position.set(spot.position.x, spot.position.y, spot.position.z);
-            marker.userData = spot;
-            scene.add(marker);
-        });
+            _buildImageUrl() {
+                const { user, repo, branch, image } = CONFIG.github;
+                return `https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/${image}`;
+            }
 
-        // 射线检测交互
-        const raycaster = new THREE.Raycaster();
-        const pointer = new THREE.Vector2();
-
-        document.addEventListener('click', (event) => {
-            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-            pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            
-            raycaster.setFromCamera(pointer, camera);
-            const intersects = raycaster.intersectObjects(scene.children);
-            
-            intersects.forEach(intersect => {
-                if(intersect.object.userData.info) {
-                    alert(intersect.object.userData.info);
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+            _updateLoadingText() {
+                const loading = document.getElementById('loading');
+                if (this.loadState.progress < 100) {
+                    loading.textContent = `加载中 ${Math.floor(this.loadState.progress)}%`;
+               …
