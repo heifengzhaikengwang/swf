@@ -1,129 +1,80 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>线上3D展览馆</title>
+    <title>360°全景查看器</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            background: #f0f0f0;
-            font-family: Arial, sans-serif;
+            margin: 0;
             overflow: hidden;
+            font-family: Arial, sans-serif;
         }
-
-        .gallery-container {
-            position: relative;
-            height: 100vh;
-            perspective: 2000px;
-        }
-
-        .gallery {
+        #info {
             position: absolute;
+            top: 10px;
             width: 100%;
-            height: 100%;
-            transform-style: preserve-3d;
-            transition: transform 0.5s;
-        }
-
-        .item {
-            position: absolute;
-            width: 300px;
-            height: 400px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            transition: transform 0.3s, box-shadow 0.3s;
-            cursor: pointer;
-        }
-
-        .item:hover {
-            transform: translateY(-10px) scale(1.05);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-        }
-
-        .item img {
-            width: 100%;
-            height: 85%;
-            object-fit: cover;
-            border-radius: 15px 15px 0 0;
-        }
-
-        .caption {
-            padding: 10px;
             text-align: center;
-            color: #333;
-        }
-
-        /* 响应式布局 */
-        @media (max-width: 768px) {
-            .item {
-                width: 200px;
-                height: 300px;
-            }
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px;
+            z-index: 100;
         }
     </style>
 </head>
 <body>
-    <div class="gallery-container">
-        <div class="gallery" id="gallery">
-            <!-- 根据图片中的文件名添加图片项 -->
-            <div class="item" style="transform: rotateY(0deg) translateZ(600px)">
-                <img src="IMG_20231023_205137.jpg" alt="展品1">
-                <div class="caption">展品 #1</div>
-            </div>
-            <div class="item" style="transform: rotateY(60deg) translateZ(600px)">
-                <img src="IMG_20231023_205155.jpg" alt="展品2">
-                <div class="caption">展品 #2</div>
-            </div>
-            <div class="item" style="transform: rotateY(120deg) translateZ(600px)">
-                <img src="IMG_20241110_225023.jpg" alt="展品3">
-                <div class="caption">展品 #3</div>
-            </div>
-        </div>
-    </div>
-
+    <div id="info">拖动鼠标查看全景照片 | 滚轮缩放</div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
     <script>
-        // 鼠标交互控制
-        let isDown = false;
-        let startX;
-        let scrollLeft;
-        let rotateY = 0;
+        // 初始化场景、相机和渲染器
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-        document.addEventListener('mousedown', (e) => {
-            isDown = true;
-            startX = e.pageX;
+        // 创建全景球体
+        const geometry = new THREE.SphereGeometry(500, 60, 40);
+        geometry.scale(-1, 1, 1); // 将球体内部翻转向外
+
+        // 加载全景纹理
+        const textureLoader = new THREE.TextureLoader();
+        const texture = textureLoader.load('mmexport1743515160971.jpg');
+        
+        const material = new THREE.MeshBasicMaterial({
+            map: texture
         });
 
-        document.addEventListener('mouseup', () => {
-            isDown = false;
+        const sphere = new THREE.Mesh(geometry, material);
+        scene.add(sphere);
+
+        // 设置相机位置
+        camera.position.set(0, 0, 0.1);
+
+        // 添加轨道控制器
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // 添加阻尼效果
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 0.3;
+        controls.enableZoom = true;
+        controls.minDistance = 0.1;
+        controls.maxDistance = 1.5;
+
+        // 处理窗口大小变化
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        document.addEventListener('mousemove', (e) => {
-            if (!isDown) return;
-            e.preventDefault();
-            const x = e.pageX;
-            const walk = (x - startX) * 2;
-            rotateY += walk * 0.1;
-            
-            const gallery = document.getElementById('gallery');
-            gallery.style.transform = `rotateY(${rotateY}deg)`;
-        });
-
-        // 自动旋转
-        setInterval(() => {
-            if (!isDown) {
-                rotateY += 0.3;
-                const gallery = document.getElementById('gallery');
-                gallery.style.transform = `rotateY(${rotateY}deg)`;
-            }
-        }, 50);
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // 更新控制器
+            renderer.render(scene, camera);
+        }
+        animate();
     </script>
 </body>
 </html>
-
